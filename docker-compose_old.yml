@@ -1,0 +1,72 @@
+version: '3.3'
+services:
+  nextcloud-db:
+    image: mariadb:10.6
+    container_name: nextcloud-db
+    command: --transaction-isolation=READ-COMMITTED --innodb_read_only_compressed=OFF
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./database:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_MARIADB_ROOT_PASSWORD:-super_secret_password_change_me}
+      - MYSQL_PASSWORD=${NEXTCLOUD_MARIADB_USER_PASSWORD:-super_secret_password_change_me}
+      - MYSQL_DATABASE=${NEXTCLOUD_DATABASE_NAME:-nextcloud}
+      - MYSQL_USER=${NEXTCLOUD_DATABASE_USER:-nextcloud}
+      - MYSQL_INITDB_SKIP_TZINFO=1
+      - MARIADB_AUTO_UPGRADE=1
+    networks:
+      - default
+    # Sicherheitsoptionen für den Container.
+    security_opt:
+      - no-new-privileges=true
+
+      
+  nextcloud-redis:
+    image: redis:alpine
+    container_name: nextcloud-redis
+    hostname: nextcloud-redis
+    networks:
+        - default
+    restart: unless-stopped
+    command: redis-server --requirepass ${NEXTCLOUD_REDIS_PASSWORD} 
+    
+
+  nextcloud-app:
+    image: nextcloud
+    container_name: nextcloud-app
+    restart: unless-stopped
+    depends_on:
+      - nextcloud-db
+      - nextcloud-redis
+    environment:
+        TRUSTED_PROXIES: 172.16.255.254
+        OVERWRITEPROTOCOL: https
+        OVERWRITECLIURL: https://${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
+        OVERWRITEHOST: ${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
+        REDIS_HOST: nextcloud-redis
+        REDIS_HOST_PASSWORD: ${NEXTCLOUD_REDIS_PASSWORD}
+    volumes:
+      - ./app:/var/www/html
+      - ./data:/var/www/html/data
+    labels:
+      traefik.docker.network: proxy
+      traefik.enable: "true"
+      traefik.http.middlewares.nextcloud-dav.replacepathregex.regex: ^/.well-known/ca(l|rd)dav
+      traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement: /remote.php/dav/
+      traefik.http.routers.nextcloud.entrypoints: websecure
+      traefik.http.routers.nextcloud.middlewares: nextcloud-dav,default@file
+      traefik.http.routers.nextcloud.rule: (Host(`${NEXTCLOUD_DOMAIN:-nextcloud.localhost}`))
+      traefik.http.routers.nextcloud.service: nextcloud
+      traefik.http.routers.nextcloud.tls: "true"
+      traefik.http.routers.nextcloud.tls.certresolver: http_resolver
+      traefik.http.services.nextcloud.loadbalancer.server.port: "80"
+
+    networks:
+      - proxy
+      - default
+
+networks:
+  proxy:
+    external: true
