@@ -49,7 +49,6 @@ services:
 
   nextcloud:
     image: ${NEXTCLOUD_IMAGE_TAG:-nextcloud}
-    
     volumes:
       - nextcloud-app:${DATA_PATH}
     environment:
