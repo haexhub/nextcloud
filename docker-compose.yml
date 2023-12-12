@@ -95,8 +95,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      traefik:
-        condition: service_healthy
 
   backups:
     image: ${NEXTCLOUD_POSTGRES_IMAGE_TAG}
