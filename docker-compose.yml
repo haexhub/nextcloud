@@ -49,6 +49,7 @@ services:
 
   nextcloud:
     image: ${NEXTCLOUD_IMAGE_TAG:-nextcloud}
+    
     volumes:
       - nextcloud-app:${DATA_PATH}
     environment:
@@ -88,7 +89,7 @@ services:
       - "traefik.http.services.nextcloud.loadbalancer.passhostheader=true"
       - "traefik.http.routers.nextcloud.middlewares=compresstraefik"
       - "traefik.http.middlewares.compresstraefik.compress=true"
-      - "traefik.docker.network=traefik-network"
+      - "traefik.docker.network=proxy"
     restart: unless-stopped
     depends_on:
       postgres:
